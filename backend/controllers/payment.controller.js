@@ -1,6 +1,6 @@
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
-import { razorpayInstance } from "../lib/razorpay.js";
+import { stripe } from "../lib/stripe.js";
 
 export const createCheckoutSession = async (req, res) => {
 	try {
@@ -13,7 +13,7 @@ export const createCheckoutSession = async (req, res) => {
 		let totalAmount = 0;
 
 		const lineItems = products.map((product) => {
-			const amount = Math.round(product.price * 100); // rozarpay wants u to send in the format of cents
+			const amount = Math.round(product.price * 100); // stripe wants u to send in the format of cents
 			totalAmount += amount * product.quantity;
 
 			return {
@@ -37,7 +37,7 @@ export const createCheckoutSession = async (req, res) => {
 			}
 		}
 
-		const session = await rozarpay.checkout.sessions.create({
+		const session = await stripe.checkout.sessions.create({
 			payment_method_types: ["card"],
 			line_items: lineItems,
 			mode: "payment",
@@ -46,7 +46,7 @@ export const createCheckoutSession = async (req, res) => {
 			discounts: coupon
 				? [
 						{
-							coupon: await createrozarpayCoupon(coupon.discountPercentage),
+							coupon: await createStripeCoupon(coupon.discountPercentage),
 						},
 				  ]
 				: [],
@@ -76,7 +76,7 @@ export const createCheckoutSession = async (req, res) => {
 export const checkoutSuccess = async (req, res) => {
 	try {
 		const { sessionId } = req.body;
-		const session = await rozarpay.checkout.sessions.retrieve(sessionId);
+		const session = await stripe.checkout.sessions.retrieve(sessionId);
 
 		if (session.payment_status === "paid") {
 			if (session.metadata.couponCode) {
@@ -101,7 +101,7 @@ export const checkoutSuccess = async (req, res) => {
 					price: product.price,
 				})),
 				totalAmount: session.amount_total / 100, // convert from cents to dollars,
-				rozarpaySessionId: sessionId,
+				stripeSessionId: sessionId,
 			});
 
 			await newOrder.save();
@@ -118,8 +118,8 @@ export const checkoutSuccess = async (req, res) => {
 	}
 };
 
-async function createrozarpayCoupon(discountPercentage) {
-	const coupon = await rozarpay.coupons.create({
+async function createStripeCoupon(discountPercentage) {
+	const coupon = await stripe.coupons.create({
 		percent_off: discountPercentage,
 		duration: "once",
 	});
