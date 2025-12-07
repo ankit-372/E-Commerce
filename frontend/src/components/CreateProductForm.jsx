@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { PlusCircle, Upload, Loader } from "lucide-react";
+import { PlusCircle, Upload, Loader, Sparkles } from "lucide-react";
 import { useProductStore } from "../stores/useProductStore";
+import axios from "../lib/axios";
 
 const categories = ["jeans", "t-shirts", "shoes", "glasses", "jackets", "suits", "bags"];
 
@@ -14,7 +15,38 @@ const CreateProductForm = () => {
 		image: "",
 	});
 
+	// AI loading state
+	const [aiLoading, setAiLoading] = useState(false);
+
 	const { createProduct, loading } = useProductStore();
+
+	// ⭐ Gemini AI Description Generator
+	const generateAIDescription = async () => {
+		if (!newProduct.name) {
+			alert("Please enter product name first!");
+			return;
+		}
+
+		setAiLoading(true);
+
+		try {
+			const res = await axios.post("/ai/generate-description", {
+				title: newProduct.name,
+				specs: `Category: ${newProduct.category}, Price: ${newProduct.price}`,
+			});
+
+			if (res.data.success) {
+				setNewProduct({ ...newProduct, description: res.data.description });
+			} else {
+				alert("Gemini failed to generate a description.");
+			}
+		} catch (error) {
+			console.error("Gemini AI Error:", error.response?.data || error.message);
+			alert("AI failed to generate description.");
+		}
+
+		setAiLoading(false);
+	};
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
@@ -35,7 +67,7 @@ const CreateProductForm = () => {
 				setNewProduct({ ...newProduct, image: reader.result });
 			};
 
-			reader.readAsDataURL(file); // base64
+			reader.readAsDataURL(file);
 		}
 	};
 
@@ -49,10 +81,10 @@ const CreateProductForm = () => {
 			<h2 className='text-2xl font-semibold mb-6 text-emerald-300'>Create New Product</h2>
 
 			<form onSubmit={handleSubmit} className='space-y-4'>
+				
+				{/* Product Name */}
 				<div>
-					<label htmlFor='name' className='block text-sm font-medium text-gray-300'>
-						Product Name
-					</label>
+					<label htmlFor='name' className='block text-sm font-medium text-gray-300'>Product Name</label>
 					<input
 						type='text'
 						id='name'
@@ -60,16 +92,35 @@ const CreateProductForm = () => {
 						value={newProduct.name}
 						onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
 						className='mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2
-						 px-3 text-white focus:outline-none focus:ring-2
-						focus:ring-emerald-500 focus:border-emerald-500'
+						 px-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
 						required
 					/>
 				</div>
 
+				{/* AI Generator Button */}
+				<button
+					type='button'
+					onClick={generateAIDescription}
+					className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md 
+					shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 
+					focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+				>
+					{aiLoading ? (
+						<>
+							<Loader className='mr-2 h-5 w-5 animate-spin' />
+							Generating Description...
+						</>
+					) : (
+						<>
+							<Sparkles className='mr-2 h-5 w-5' />
+							Generate AI Description
+						</>
+					)}
+				</button>
+
+				{/* Description */}
 				<div>
-					<label htmlFor='description' className='block text-sm font-medium text-gray-300'>
-						Description
-					</label>
+					<label htmlFor='description' className='block text-sm font-medium text-gray-300'>Description</label>
 					<textarea
 						id='description'
 						name='description'
@@ -83,10 +134,9 @@ const CreateProductForm = () => {
 					/>
 				</div>
 
+				{/* Price */}
 				<div>
-					<label htmlFor='price' className='block text-sm font-medium text-gray-300'>
-						Price
-					</label>
+					<label htmlFor='price' className='block text-sm font-medium text-gray-300'>Price</label>
 					<input
 						type='number'
 						id='price'
@@ -95,16 +145,14 @@ const CreateProductForm = () => {
 						onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
 						step='0.01'
 						className='mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm 
-						py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500
-						 focus:border-emerald-500'
+						py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
 						required
 					/>
 				</div>
 
+				{/* Category */}
 				<div>
-					<label htmlFor='category' className='block text-sm font-medium text-gray-300'>
-						Category
-					</label>
+					<label htmlFor='category' className='block text-sm font-medium text-gray-300'>Category</label>
 					<select
 						id='category'
 						name='category'
@@ -117,13 +165,12 @@ const CreateProductForm = () => {
 					>
 						<option value=''>Select a category</option>
 						{categories.map((category) => (
-							<option key={category} value={category}>
-								{category}
-							</option>
+							<option key={category} value={category}>{category}</option>
 						))}
 					</select>
 				</div>
 
+				{/* Image Upload */}
 				<div className='mt-1 flex items-center'>
 					<input type='file' id='image' className='sr-only' accept='image/*' onChange={handleImageChange} />
 					<label
@@ -133,9 +180,10 @@ const CreateProductForm = () => {
 						<Upload className='h-5 w-5 inline-block mr-2' />
 						Upload Image
 					</label>
-					{newProduct.image && <span className='ml-3 text-sm text-gray-400'>Image uploaded </span>}
+					{newProduct.image && <span className='ml-3 text-sm text-gray-400'>Image uploaded</span>}
 				</div>
 
+				{/* Submit Button */}
 				<button
 					type='submit'
 					className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md 
@@ -155,8 +203,10 @@ const CreateProductForm = () => {
 						</>
 					)}
 				</button>
+
 			</form>
 		</motion.div>
 	);
 };
+
 export default CreateProductForm;
